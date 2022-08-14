@@ -1,13 +1,11 @@
-
-
-# http://143.110.182.192:8090/tcil_all_buses_duties_db.txt
-
-from datetime import datetime, timedelta
-
-import haversine as hs
 import requests
-from dateutil.parser import parse
+from datetime import datetime, timedelta
+import haversine as hs
 from haversine import Unit
+from dateutil.parser import parse
+import time
+import schedule
+import json
 
 bus_records = {}
 shed_status = {}
@@ -93,13 +91,17 @@ def process_start_stop_times():
     return bus_timing
 
 
-def record_gps_data():
+def record_gps_data(bus_data):
     global bus_records
-    gps_data = get_bus_gps_data()
-    for i in range(len(gps_data)):
-        if gps_data[i][2] not in bus_records.keys():
-            bus_records[gps_data[i][2]] = []
-        bus_records[gps_data[i][2]] += [[gps_data[i][0], gps_data[i][1]]]
+
+    if bus_data[2] not in bus_records.keys():
+        bus_records[bus_data[2]] = []
+    bus_records[bus_data[2]] = [bus_data[0], bus_data[1]]
+
+
+def detect_out_shed():
+
+    pass
 
 
 def filter_buses(bus_gps_data, depot_lat_long, bus_timings):
@@ -117,15 +119,18 @@ def filter_buses(bus_gps_data, depot_lat_long, bus_timings):
             continue
 
         if datetime_obj.date() != current_date:
-            shed_status[bus_gps_data[i][2]] = 1
+            shed_status[bus_gps_data[i][2]] = {'it': "", "ot": ""}
             continue
 
         plate_no = bus_gps_data[i][2]
         shed_location = bus_gps_data[i][11]
         shed_lat_long = depot_lat_long[shed_location]
 
-        distance_factor = filter_on_depot_distance(bus_gps_data[i][0], buss_gps_data[i][1], shed_lat_long[0],
-                                                   shed_lat_long[1])
+        if plate_no not in shed_status.keys():
+            shed_status[plate_no] = {'it': "", "ot": ""}
+
+        distance_factor = filter_on_depot_distance(float(bus_gps_data[i][0]), float(bus_gps_data[i][1]),
+                                                   float(shed_lat_long[0]), float(shed_lat_long[1]))
 
         current_lat = bus_gps_data[i][0]
         current_long = bus_gps_data[i][1]
@@ -134,49 +139,69 @@ def filter_buses(bus_gps_data, depot_lat_long, bus_timings):
         distance_travelled_factor = False
 
         if plate_no not in bus_records.keys():
-            record_gps_data()
+            record_gps_data(bus_gps_data[i])
         else:
             recorded = True
             prev_rec_lat = bus_records[plate_no][0]
             prev_rec_long = bus_records[plate_no][1]
 
-            distance_travelled_factor = filter_on_depot_distance(current_lat, current_long, prev_rec_lat, prev_rec_long)
+            distance_travelled_factor = filter_on_distance_travelled(float(current_lat), float(current_long),
+                                                                     float(prev_rec_lat), float(prev_rec_long))
+            record_gps_data(bus_gps_data[i])
 
         if plate_no not in bus_timings.keys():
-            if distance_travelled_factor and distance_factor:
-                shed_status[plate_no] = 1
-            else:
-                shed_status[plate_no] = 0
+            if not distance_factor and not distance_travelled_factor and shed_status[plate_no]['ot'] == '':
+                shed_status[plate_no]['ot'] = current_time.strftime('%H:%M:%S')
+            elif distance_travelled_factor and distance_factor and shed_status[plate_no]['ot'] != '' and shed_status[plate_no]['it'] == '':
+                shed_status[plate_no]['it'] = current_time.strftime('%H:%M:%S')
             continue
 
+        trip_start_time = bus_timings[plate_no][0]
         trip_end_time = bus_timings[plate_no][1]
 
+        if current_date_time >= trip_start_time or (trip_start_time - current_date_time) <= timedelta(seconds=300):
+            trip_started = True
+        else:
+            trip_started = False
+
         if abs(trip_end_time - current_date_time) <= timedelta(seconds=600) or \
-                (current_time - trip_end_time > timedelta(seconds=0)):
+                (current_date_time - trip_end_time > timedelta(seconds=0)):
             time_factor = True
         else:
             time_factor = False
 
         if recorded:
-            if time_factor and distance_factor and distance_travelled_factor:
-                shed_status[plate_no] = 1
-            else:
-                shed_status[plate_no] = 0
+            if time_factor and distance_factor and distance_travelled_factor and shed_status[plate_no]['ot'] != '' and \
+                    shed_status[plate_no]['it'] == '':
+                shed_status[plate_no]['it'] = current_time.strftime('%H:%M:%S')
+            elif trip_started and not distance_factor and not distance_travelled_factor and \
+                    shed_status[plate_no]['ot'] == '':
+                shed_status[plate_no]['ot'] = current_time.strftime('%H:%M:%S')
+
         else:
-            if distance_factor and time_factor:
-                shed_status[plate_no] = 1
-            else:
-                shed_status[plate_no] = 0
+            if distance_factor and time_factor and shed_status[plate_no]['ot'] != '' and \
+                    shed_status[plate_no]['it'] == "":
+                shed_status[plate_no]['it'] = current_time.strftime('%H:%M:%S')
+            elif not distance_factor and trip_started and shed_status[plate_no]['ot'] == "":
+                shed_status[plate_no]['ot'] = current_time.strftime('%H:%M:%S')
 
 
-buss_gps_data = get_bus_gps_data()
-bus_trips_data = get_bus_trips_data()
-depots_lat_long = load_depot_data()
-bus_timing = process_start_stop_times()
+def main():
+    depots_lat_long = load_depot_data()
 
-filter_buses(buss_gps_data, depots_lat_long, bus_timing)
+    while True:
+        st = time.time()
+
+        buss_gps_data = get_bus_gps_data()
+        bus_timing = process_start_stop_times()
+        filter_buses(buss_gps_data, depots_lat_long, bus_timing)
+
+        en = time.time()
+        with open('convert.txt', 'w') as convert_file:
+            convert_file.write(json.dumps(shed_status))
+        print(en - st)
+        time.sleep(180 - (en - st) % 60)
 
 
-
-
-
+if __name__ == '__main__':
+    main()
