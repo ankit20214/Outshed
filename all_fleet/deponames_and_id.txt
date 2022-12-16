@@ -1,0 +1,40 @@
+Name,ID
+Ambedkar Nagar Depot	,and
+Banda Bahardur Marg Depot,	bbm
+Dichaon Kalan Depot	,dkd
+Dwarka Sector - 2 Depot	,dw-sec-2
+Dwarka Sector - 8 Depot	,dw-sec-8
+East Vinod Nagar Depot	,evnd
+Gazipur Depot	,gpd
+GT Karnal Road Depot	,gtk
+Hari Nagar Depot - I,	hnd-1
+Hari Nagar Depot - II,	hnd-2
+Hasanpur Depot	,hpd
+IP Depot	,ipd
+Kalkaji Depot,	kjd
+Kanjhawala Depot,	knjd
+Keshopur Depot	,kpd
+Mayapuri Depot	,mpd
+Naraina Depot	,nd
+Nangloi Depot	,nld
+Nand Nagri Depot,	nnd
+Noida Depot	,noida
+Narela Depot,	nrld
+Peera Garhi Depot,	pgd
+Rajghat 1	,rajghat-1
+Rajghat 2	,rajghat-2
+Rohini Depot 1	,rhd-1
+Rohini Depot 2	,rhd-2
+Rohini Depot 3,	rhd-3
+Rohini Depot 4,	rhd-4
+Subhash Place Depot,	sbpl
+Sarojini Nagar Depot,	snd
+Sriniwaspuri Depot,	snpd
+Shadipur Depot,	spd
+Sukhdev Vihar Depot,	svd
+Tehkhand Depot	,tkd
+Vasant VIhar Depot,	vvd
+Wazirpur Depot	,wpd
+Kushak Nallah Depot	,knd
+Rohini Depot 37,	rhd-37
+Mundela Kalan Depot,	mkd
